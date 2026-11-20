@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>NEON CITY 2077 — Prototype</title>
+<style>
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050811;color:#eaf7ff;font-family:Arial,sans-serif}
+  #game{width:100%;height:100%;display:block}
+  #hud{position:fixed;inset:0;pointer-events:none}
+  .panel{position:absolute;background:rgba(4,12,24,.72);border:1px solid rgba(93,220,255,.35);box-shadow:0 0 22px rgba(0,210,255,.12);backdrop-filter:blur(8px);padding:12px 15px;border-radius:8px}
+  #brand{top:16px;left:16px;font-weight:800;letter-spacing:2px;color:#7deaff}
+  #help{left:16px;bottom:16px;line-height:1.65;font-size:13px;color:#d5e7f3}
+  #status{right:16px;top:16px;text-align:right;font-size:13px;line-height:1.7}
+  #crosshair{position:absolute;left:50%;top:50%;width:6px;height:6px;border:1px solid #9ff5ff;border-radius:50%;transform:translate(-50%,-50%);opacity:.8}
+  #start{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(10,30,55,.55),rgba(1,4,12,.92));pointer-events:auto}
+  #card{max-width:520px;margin:20px;padding:28px 30px;border:1px solid rgba(93,220,255,.5);border-radius:14px;background:rgba(3,12,25,.88);box-shadow:0 0 60px rgba(0,190,255,.18);text-align:center}
+  h1{margin:0 0 8px;color:#8beeff;letter-spacing:4px;font-size:clamp(24px,5vw,42px)}
+  .sub{color:#9cb7c9;margin-bottom:20px}
+  button{pointer-events:auto;background:#08b9d4;color:#001018;border:0;border-radius:6px;padding:12px 22px;font-weight:bold;font-size:15px;cursor:pointer}
+  button:hover{background:#6beaff}
+  #tip{font-size:12px;color:#9bb5c5;margin-top:16px;line-height:1.6}
+  #toast{position:absolute;left:50%;bottom:23%;transform:translateX(-50%);padding:8px 14px;background:rgba(0,10,20,.8);border:1px solid #24cce5;border-radius:5px;opacity:0;transition:opacity .2s}
+  .uiBtn{position:absolute;top:76px;right:16px;pointer-events:auto;padding:8px 12px;margin-left:6px;background:rgba(4,20,35,.9);color:#bff8ff;border:1px solid #38cce8}
+  #mapPanel,#settingsPanel{display:none;position:absolute;right:16px;top:124px;pointer-events:auto;background:rgba(3,12,25,.94);border:1px solid #32cde8;border-radius:10px;padding:12px;box-shadow:0 0 28px #00aacc33}
+  #mapPanel{width:280px}
+  #mapCanvas{width:280px;height:280px;background:#101c2b;border-radius:6px;display:block}
+  #settingsPanel{width:290px;max-height:70vh;overflow:auto}
+  #timePanel{position:absolute;left:16px;top:76px;padding:7px 11px;font-size:12px}
+  #settingsPanel label{display:block;margin:10px 0 5px;color:#9bd8e8;font-size:13px}
+  #settingsPanel select,#settingsPanel button{width:100%;margin:4px 0;padding:8px;background:#10283b;color:#e8fbff;border:1px solid #287e99;border-radius:5px}
+  #settingsPanel button{cursor:pointer}
+  .settingRow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #touchControls{display:none;position:fixed;inset:0;pointer-events:none;z-index:10}
+  .touchBtn{position:absolute;pointer-events:auto;user-select:none;-webkit-user-select:none;touch-action:none;
+    width:58px;height:58px;padding:0;border-radius:50%;background:rgba(5,35,55,.72);
+    color:#d8fbff;border:1px solid rgba(85,225,255,.75);font-size:13px;font-weight:bold}
+  #joyBase{position:absolute;left:20px;bottom:24px;width:150px;height:150px;border-radius:50%;
+    border:2px solid rgba(95,220,255,.55);background:rgba(4,25,42,.28);pointer-events:auto;touch-action:none}
+  #joyStick{position:absolute;left:47px;top:47px;width:54px;height:54px;border-radius:50%;
+    background:rgba(52,205,235,.7);border:1px solid #b8f8ff;pointer-events:none}
+  #touchJump{right:24px;bottom:28px}
+  #touchRun{right:92px;bottom:100px}
+  #touchUse{right:92px;bottom:28px}
+  #touchView{right:24px;bottom:100px}
+  #touchMap{right:24px;top:100px;width:48px;height:48px}
+  #touchSettings{right:82px;top:100px;width:48px;height:48px}
+  @media (max-width:700px){
+    #help{display:none}
+    #status{top:12px;right:10px;font-size:11px;padding:8px 10px}
+    #brand{top:12px;left:10px;font-size:12px;padding:8px 10px}
+    #timePanel{top:55px;left:10px;font-size:10px}
+    .uiBtn{top:62px;right:10px;padding:7px 9px;font-size:11px}
+    #settingsBtn{right:85px!important}
+    #mapPanel{top:112px;right:8px;width:220px;padding:8px}
+    #mapCanvas{width:220px;height:220px}
+    #settingsPanel{top:112px;right:8px;width:min(290px,calc(100vw - 32px))}
+    #card{padding:22px 18px}
+    #touchControls{display:block}
+    #crosshair{display:none}
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div id="brand" class="panel">NEON CITY <span style="color:#fff">/ 2077</span></div>
+  <div id="status" class="panel">区域：新曙光城区<br>模式：步行探索<br>视角：第三人称</div>
+  <div id="timePanel" class="panel">时间 08:00 · 白天</div>
+  <div id="help" class="panel">
+    <b>操作指南</b><br>
+    WASD — 移动 / 驾驶　　SHIFT — 奔跑<br>
+    鼠标 — 环顾四周　　V — 切换视角<br>
+    E — 上车 / 下车　　SPACE — 跳跃<br>
+    开车时 A/D 转向，W 加速，S 刹车 / 倒车
+  </div>
+  <button class="uiBtn" id="mapBtn">地图 (M)</button>
+  <button class="uiBtn" id="settingsBtn" style="right:112px">设置</button>
+  <div id="mapPanel"><b id="mapTitle">城区地图</b><canvas id="mapCanvas" width="280" height="280"></canvas><small id="mapLegend">青色：你的位置　粉色：车辆　黄色：任务</small><br><small id="mapHint">点击地图设置 GPS 目的地</small></div>
+  <div id="settingsPanel">
+    <b id="settingsTitle">游戏设置</b>
+    <label id="languageLabel">语言 / Language</label>
+    <select id="languageSelect"><option value="zh">简体中文</option><option value="en">English</option></select>
+    <label id="keysLabel">键位设置（点击按钮后按下新按键）</label>
+    <div id="keyRows"></div>
+    <button id="closeSettings">关闭设置</button>
+  </div>
+  <div id="touchControls">
+    <div id="joyBase"><div id="joyStick"></div></div>
+    <button class="touchBtn" id="touchJump">跳跃</button>
+    <button class="touchBtn" id="touchRun">奔跑</button>
+    <button class="touchBtn" id="touchUse">上车</button>
+    <button class="touchBtn" id="touchView">视角</button>
+    <button class="touchBtn" id="touchMap">地图</button>
+    <button class="touchBtn" id="touchSettings">设置</button>
+  </div>
+  <div id="crosshair"></div>
+  <div id="toast">视角已切换</div>
+</div>
+<div id="start">
+  <div id="card">
+    <h1>NEON CITY 2077</h1>
+    <div class="sub">新曙光城区 · 开放世界原型</div>
+    <p>欢迎来到 2077 年。城市仍在运转，而你的故事才刚刚开始。</p>
+    <button id="enter">进入城市</button>
+    <div id="tip">建议使用电脑 Chrome / Edge 浏览器<br>点击进入后使用鼠标控制视角。此版本是可探索的第一阶段原型。</div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+
+
+const canvas=document.querySelector('#game');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.15;
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x070d1c);
+scene.fog=new THREE.FogExp2(0x091326,0.0035);
+const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.1,900);
+
+scene.add(new THREE.HemisphereLight(0x9bbcff,0x171322,1.5));
+const moon=new THREE.DirectionalLight(0xb8d9ff,2.0);
+moon.position.set(-80,130,45); moon.castShadow=true;
+moon.shadow.mapSize.set(2048,2048);
+moon.shadow.camera.left=-100;moon.shadow.camera.right=100;moon.shadow.camera.top=100;moon.shadow.camera.bottom=-100;
+
+scene.add(moon);
+const timeState={hour:8,rate:0.12}; // one in-game day lasts about 10 real minutes
+const missionPoints=[
+ {x:105,z:-70,name:'中央车站',kind:'任务'},
+ {x:-125,z:105,name:'霓虹市场',kind:'任务'},
+ {x:190,z:145,name:'能源塔',kind:'任务'}
+];
+let gpsTarget=null;
+const sunLight=moon;
+const ambientLight=scene.children.find(o=>o.isHemisphereLight);
+function updateDayNight(){
+ const h=timeState.hour,angle=(h/24)*Math.PI*2-Math.PI/2;
+ const daylight=Math.max(0,Math.sin(angle));
+ const twilight=Math.max(0,1-Math.abs(h-6)/2)*.35+Math.max(0,1-Math.abs(h-18)/2)*.35;
+ const sky=new THREE.Color(0x050916).lerp(new THREE.Color(0x8bbce8),Math.pow(daylight,.7));
+ sky.lerp(new THREE.Color(0xf08b62),Math.min(twilight,.5));
+ scene.background.copy(sky);
+ scene.fog.color.copy(sky).lerp(new THREE.Color(0x101a32),.35);
+ sunLight.intensity=.12+daylight*2.1;
+ sunLight.position.set(Math.cos(angle)*100,Math.max(8,Math.sin(angle)*130),35);
+ ambientLight.intensity=.35+daylight*1.35;
+ const hh=String(Math.floor(h)).padStart(2,'0'),mm=String(Math.floor((h%1)*60)).padStart(2,'0');
+ const phase=(h>=6&&h<18)?(language==='zh'?'白天':'Day'):(language==='zh'?'夜晚':'Night');
+ document.querySelector('#timePanel').textContent=`${language==='zh'?'时间':'TIME'} ${hh}:${mm} · ${phase}`;
+}
+
+const mat=(color,roughness=.8,metalness=.1,emissive=0x000000,intensity=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness,emissive,emissiveIntensity:intensity});
+const asphalt=mat(0x151d2a,.95), sidewalk=mat(0x303b49), concrete=mat(0x394657), darkGlass=mat(0x101e30,.25,.7), cyan=mat(0x08bddd,.3,.3,0x00aacc,2.0), pink=mat(0xff287e,.35,.2,0xd40052,1.8), warm=mat(0xffc76a,.35,.1,0xffa52e,1.3);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(700,700),asphalt);ground.rotation.x=-Math.PI/2;ground.position.y=-.12;ground.receiveShadow=true;scene.add(ground);
+
+// City blocks: avenues and cross streets.
+const roadLine=mat(0x9bb6c7,.8,0,0x547b9c,.35);
+for(let k=-5;k<=5;k++){
+  const z=k*34;
+  const road=new THREE.Mesh(new THREE.PlaneGeometry(700,15),asphalt);road.rotation.x=-Math.PI/2;road.position.set(0,-.105,z);scene.add(road);
+  for(let x=-330;x<340;x+=12){
+    const dash=new THREE.Mesh(new THREE.PlaneGeometry(5,.16),roadLine);dash.rotation.x=-Math.PI/2;dash.position.set(x,-.09,z);scene.add(dash);
+  }
+  const x=k*34;
+  const cross=new THREE.Mesh(new THREE.PlaneGeometry(15,700),asphalt);cross.rotation.x=-Math.PI/2;cross.position.set(x,-.10,0);scene.add(cross);
+  for(let z2=-330;z2<340;z2+=12){
+    const dash=new THREE.Mesh(new THREE.PlaneGeometry(.16,5),roadLine);dash.rotation.x=-Math.PI/2;dash.position.set(x,-.085,z2);scene.add(dash);
+  }
+}
+const buildingMats=[0x202d40,0x26374a,0x18283c,0x303b50,0x1b2637].map(c=>mat(c,.35,.55));
+function box(w,h,d,material,x,y,z,shadow=true){
+ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y,z);m.castShadow=shadow;m.receiveShadow=true;scene.add(m);return m;
+}
+let seed=2077;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+for(let gx=-5;gx<=5;gx++)for(let gz=-5;gz<=5;gz++){
+ if(Math.abs(gx)%1===0 && Math.abs(gz)%1===0 && (Math.abs(gx*34)<10||Math.abs(gz*34)<10))continue;
+ const cx=gx*34+(rand()-.5)*5,cz=gz*34+(rand()-.5)*5;
+ const w=14+rand()*11,d=14+rand()*11,h=18+rand()*85;
+ const b=box(w,h,d,buildingMats[Math.floor(rand()*buildingMats.length)],cx,h/2,cz);
+ // Glowing rooftop crown and vertical accent strips.
+ if(rand()>.35){const crown=box(w*.8,.35,d*.8,rand()>.5?cyan:pink,cx,h+.18,cz,false);}
+ for(let side=0;side<2;side++){
+   const zface=cz+(side?1:-1)*(d/2+.025);
+   for(let yy=5;yy<h-3;yy+=5){
+     for(let xx=-w/2+2;xx<w/2-1;xx+=3.2){
+       const win=box(1.15,1.7,.07,rand()>.83?warm:(rand()>.45?cyan:darkGlass),cx+xx,yy,zface,false);
+     }
+   }
+ }
+ if(rand()>.5){
+  const stripe=box(.22,h*.8,.25,rand()>.5?cyan:pink,cx+w/2+.05,h*.53,cz,false);
+ }
+}
+// Distant skyline silhouettes
+for(let i=0;i<65;i++){
+ const x=(rand()-.5)*600,z=(rand()-.5)*600;
+ const h=35+rand()*100,w=10+rand()*20;
+ box(w,h,w,buildingMats[Math.floor(rand()*buildingMats.length)],x,h/2,z,false);
+}
+
+
+// District identity markers and mission beacons.
+const districtLabels=[
+ {x:0,z:-190,t:'NOVA / 中央商务区'},
+ {x:-190,z:0,t:'OLD TOWN / 旧城区'},
+ {x:190,z:0,t:'INDUSTRIAL / 工业区'},
+ {x:0,z:190,t:'MARKET / 霓虹商业区'}
+];
+for(const d of districtLabels){
+ const spriteCanvas=document.createElement('canvas');spriteCanvas.width=512;spriteCanvas.height=96;
+ const c=spriteCanvas.getContext('2d');c.font='bold  thirtypx Arial';c.font='bold 32px Arial';c.textAlign='center';c.fillStyle='#8beeff';c.shadowColor='#00cfff';c.shadowBlur=18;c.fillText(d.t,256,58);
+ const tex=new THREE.CanvasTexture(spriteCanvas);
+ const sprite=new THREE.Mesh(new THREE.PlaneGeometry(24,4.5),new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false}));
+ sprite.position.set(d.x,17,d.z);scene.add(sprite);
+}
+const missionObjects=[];
+for(const m of missionPoints){
+ const beacon=new THREE.Group();
+ const pillar=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,5,12),mat(0xffd34d,.25,.2,0xffa900,2.5));pillar.position.y=2.5;beacon.add(pillar);
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(1.1,.08,8,24),mat(0xffd34d,.25,.2,0xffa900,2));ring.rotation.x=Math.PI/2;ring.position.y=.2;beacon.add(ring);
+ beacon.position.set(m.x,0,m.z);scene.add(beacon);missionObjects.push(beacon);
+}
+
+// A small explorable interior hub: approach the illuminated entrance and press E.
+const hub=new THREE.Group();scene.add(hub);hub.position.set(22,0,8);
+const hubWall=mat(0x26394b,.65,.3),hubFloor=mat(0x37495a,.8,.1);
+const floor=new THREE.Mesh(new THREE.BoxGeometry(18,.35,16),hubFloor);floor.position.set(0,.0,0);hub.add(floor);
+for(const [x,z,w,d] of [[0,-8,18,.5],[0,8,18,.5],[-9,0,.5,16],[9,0,.5,16]]){
+ const wall=new THREE.Mesh(new THREE.BoxGeometry(w,5,d),hubWall);wall.position.set(x,2.5,z);hub.add(wall);
+}
+const hubLight=new THREE.PointLight(0x47dfff,16,32);hubLight.position.set(0,4,0);hub.add(hubLight);
+const hubSign=box(4,.35,.18,cyan,22,5.5,-.1,false);
+let insideHub=false;
+const hubDoor=new THREE.Vector3(22,0,0);
+
+// Sidewalks and street lamps along central boulevard.
+for(let s of [-1,1]){
+ const walk=new THREE.Mesh(new THREE.PlaneGeometry(700,4),sidewalk);walk.rotation.x=-Math.PI/2;walk.position.set(s*9.7,-.04,0);scene.add(walk);
+ for(let z=-300;z<=300;z+=28){
+   const pole=box(.18,7,.18,mat(0x46566b,.4,.7),s*11,3.5,z,false);
+   const arm=box(1.8,.12,.12,mat(0x46566b),s*10.2,6.7,z,false);
+   const lamp=box(.7,.16,.4,warm,s*9.5,6.55,z,false);
+ }
+}
+
+// Neon signage on nearby buildings
+function sign(text,x,y,z,color){
+ const c=document.createElement('canvas');c.width=512;c.height=128;
+ const ctx=c.getContext('2d');ctx.clearRect(0,0,512,128);ctx.font='bold 64px Arial';ctx.textAlign='center';ctx.shadowColor=color;ctx.shadowBlur=25;ctx.fillStyle=color;ctx.fillText(text,256,82);
+ const tex=new THREE.CanvasTexture(c);const m=new THREE.MeshBasicMaterial({map:tex,transparent:true,side:THREE.DoubleSide});
+ const p=new THREE.Mesh(new THREE.PlaneGeometry(13,3.25),m);p.position.set(x,y,z);scene.add(p);
+}
+sign('NOVA DISTRICT',-20,22,-17,'#29eaff');sign('夜行便利店',18,13,-28,'#ff3e98');sign('SKYLINE',-48,34,18,'#7cecff');
+
+// Player capsule-like figure.
+const player=new THREE.Group();scene.add(player);
+const bodyMat=mat(0x172c42,.45,.4), jacket=mat(0x08a8c7,.4,.3,0x004455,.4), skin=mat(0xc58d6a);
+const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.42,.75,5,10),jacket);torso.position.y=1.35;torso.castShadow=true;player.add(torso);
+const head=new THREE.Mesh(new THREE.SphereGeometry(.27,16,12),skin);head.position.y=2.12;head.castShadow=true;player.add(head);
+const legGeo=new THREE.CapsuleGeometry(.16,.65,4,8);
+const leg1=new THREE.Mesh(legGeo,bodyMat),leg2=new THREE.Mesh(legGeo,bodyMat);leg1.position.set(-.2,.48,0);leg2.position.set(.2,.48,0);player.add(leg1,leg2);
+const glowRing=new THREE.Mesh(new THREE.TorusGeometry(.48,.025,6,32),cyan);glowRing.rotation.x=Math.PI/2;glowRing.position.y=.08;player.add(glowRing);
+player.position.set(0,0,8);
+
+// Player vehicle: a drivable futuristic electric coupe.
+const car = new THREE.Group();
+const carBodyMat = mat(0x12364d,.28,.78,0x06283a,.35);
+const carGlassMat = mat(0x071522,.16,.75);
+const wheelMat = mat(0x080b11,.9,.1);
+const carBody = new THREE.Mesh(new THREE.BoxGeometry(2.25,.62,4.4),carBodyMat);
+carBody.position.y=.78; carBody.castShadow=true; car.add(carBody);
+const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.72,.72,2.15),carGlassMat);
+cabin.position.set(0,1.38,-.18); cabin.castShadow=true; car.add(cabin);
+const hood = new THREE.Mesh(new THREE.BoxGeometry(2.05,.18,1.05),carBodyMat);
+hood.position.set(0,1.02,-1.55); car.add(hood);
+const wheelGeo = new THREE.CylinderGeometry(.43,.43,.28,20);
+const wheels=[];
+for(const x of [-1.12,1.12]) for(const z of [-1.38,1.38]){
+ const wheel=new THREE.Mesh(wheelGeo,wheelMat);wheel.rotation.z=Math.PI/2;wheel.position.set(x,.43,z);wheel.castShadow=true;car.add(wheel);wheels.push(wheel);
+}
+const headMat = mat(0x8ff8ff,.2,.1,0x4deaff,3);
+for(const x of [-.78,.78]){
+ const lamp=new THREE.Mesh(new THREE.BoxGeometry(.48,.12,.08),headMat);lamp.position.set(x,.92,-2.22);car.add(lamp);
+}
+const tailMat = mat(0xff245f,.2,.1,0xff003c,2.5);
+const tail=new THREE.Mesh(new THREE.BoxGeometry(1.7,.12,.08),tailMat);tail.position.set(0,.95,2.22);car.add(tail);
+car.position.set(4,0,8);scene.add(car);
+let inCar=false, carSpeed=0, steering=0;
+
+// Floating traffic drones for ambience.
+const drones=[];
+for(let i=0;i<9;i++){
+ const g=new THREE.Group();const core=new THREE.Mesh(new THREE.BoxGeometry(2.5,.55,1.2),mat(0x202e42,.3,.8));g.add(core);
+ const glow=new THREE.Mesh(new THREE.BoxGeometry(1.5,.08,.12),cyan);glow.position.y=-.2;g.add(glow);
+ const light=new THREE.PointLight(0x16cfff,1.2,18);g.add(light);
+ g.position.set((rand()-.5)*260,22+rand()*18,(rand()-.5)*260);scene.add(g);drones.push({g,phase:rand()*6,speed:.6+rand()*.5});
+}
+
+// Camera and controls
+let yaw=0,pitch=-.08,firstPerson=false,locked=false,velocityY=0,onGround=true;
+const keys={};
+const toast=document.querySelector('#toast');
+function say(t){toast.textContent=t;toast.style.opacity=1;setTimeout(()=>toast.style.opacity=0,1100);}
+function updateMode(){
+ torso.visible=head.visible=leg1.visible=leg2.visible=!firstPerson;
+ const pNow=inCar?car.position:player.position;
+ const district=(Math.abs(pNow.x)<80&&Math.abs(pNow.z)<80)?(language==='zh'?'新曙光中心':'Nova Center'):(pNow.x>80?'工业区':(pNow.x< -80?'旧城区':'霓虹商业区'));
+ const gpsText=gpsTarget?`<br>GPS：${Math.round(pNow.distanceTo(new THREE.Vector3(gpsTarget.x,0,gpsTarget.z)))} m`:'';
+ document.querySelector('#status').innerHTML=`${language==='zh'?'区域':'District'}：${district}<br>${language==='zh'?'模式':'Mode'}：${inCar?'驾驶车辆':'步行探索'}<br>${language==='zh'?'视角':'View'}：${firstPerson?'第一人称':'第三人称'}${inCar?`<br>${language==='zh'?'车速':'Speed'}：${Math.round(Math.abs(carSpeed)*12)} km/h`:''}${gpsText}`;
+ say(firstPerson?'已切换至第一人称':'已切换至第三人称');
+}
+
+const defaultBinds={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',run:'ShiftLeft',jump:'Space',enterCar:'KeyE',view:'KeyV',map:'KeyM'};
+const binds={...defaultBinds};
+let language='zh',waitingBind=null;
+const bindNames={forward:['前进','Forward'],back:['后退','Backward'],left:['左移 / 左转','Left / Steer Left'],right:['右移 / 右转','Right / Steer Right'],run:['奔跑','Run'],jump:['跳跃','Jump'],enterCar:['上车 / 下车','Enter / Exit Vehicle'],view:['切换视角','Switch View'],map:['打开地图','Toggle Map']};
+const keyLabel=code=>code.replace('Key','').replace('ShiftLeft','Left Shift').replace('ShiftRight','Right Shift').replace('ArrowUp','↑').replace('ArrowDown','↓').replace('ArrowLeft','←').replace('ArrowRight','→');
+function renderSettings(){
+ const rows=document.querySelector('#keyRows'); rows.innerHTML='';
+ Object.keys(binds).forEach(action=>{
+   const row=document.createElement('div');row.className='settingRow';
+   const label=document.createElement('label');label.textContent=bindNames[action][language==='zh'?0:1];
+   const btn=document.createElement('button');btn.textContent=waitingBind===action?'请按键…':keyLabel(binds[action]);
+   btn.onclick=()=>{waitingBind=action;renderSettings();};
+   row.append(label,btn);rows.append(row);
+ });
+ document.querySelector('#languageLabel').textContent=language==='zh'?'语言 / Language':'Language / 语言';
+ document.querySelector('#keysLabel').textContent=language==='zh'?'键位设置（点击按钮后按下新按键）':'Key bindings (click a button, then press a key)';
+ document.querySelector('#settingsTitle').textContent=language==='zh'?'游戏设置':'Game Settings';
+ document.querySelector('#closeSettings').textContent=language==='zh'?'关闭设置':'Close Settings';
+ document.querySelector('#mapBtn').textContent=language==='zh'?'地图 (M)':'Map (M)';
+ document.querySelector('#settingsBtn').textContent=language==='zh'?'设置':'Settings';
+ document.querySelector('#touchJump').textContent=language==='zh'?'跳跃':'Jump';document.querySelector('#touchRun').textContent=language==='zh'?'奔跑':'Run';document.querySelector('#touchUse').textContent=language==='zh'?'上车':'Use';document.querySelector('#touchView').textContent=language==='zh'?'视角':'View';document.querySelector('#touchMap').textContent=language==='zh'?'地图':'Map';document.querySelector('#touchSettings').textContent=language==='zh'?'设置':'Set';
+ document.querySelector('#mapTitle').textContent=language==='zh'?'城区地图':'City Map';
+ document.querySelector('#mapLegend').textContent=language==='zh'?'青色：你的位置　粉色：车辆':'Cyan: You　Pink: Vehicle';
+ document.querySelector('#help').innerHTML=language==='zh'
+ ?'<b>操作指南</b><br>WASD — 移动 / 驾驶　 SHIFT — 奔跑<br>鼠标 — 环顾四周　 V — 切换视角<br>E — 上车 / 下车　 SPACE — 跳跃<br>M — 地图　 设置 — 修改语言和键位'
+ :'<b>CONTROLS</b><br>WASD — Move / Drive　 SHIFT — Run<br>Mouse — Look　 V — Switch View<br>E — Enter / Exit　 SPACE — Jump<br>M — Map　 Settings — Language & Keys';
+}
+document.querySelector('#languageSelect').addEventListener('change',e=>{language=e.target.value;renderSettings();});
+document.querySelector('#settingsBtn').addEventListener('click',()=>{document.exitPointerLock?.();document.querySelector('#settingsPanel').style.display='block';});
+document.querySelector('#closeSettings').addEventListener('click',()=>{document.querySelector('#settingsPanel').style.display='none';});
+document.querySelector('#mapBtn').addEventListener('click',()=>{const el=document.querySelector('#mapPanel');el.style.display=el.style.display==='block'?'none':'block';});
+function drawMap(){
+ const c=document.querySelector('#mapCanvas'),ctx=c.getContext('2d'),w=c.width,h=c.height;
+ ctx.fillStyle='#101c2b';ctx.fillRect(0,0,w,h);
+ const scale=.38, cx=w/2,cy=h/2;
+ ctx.strokeStyle='#52677a';ctx.lineWidth=3;
+ for(let k=-5;k<=5;k++){let v=cx+k*34*scale;ctx.beginPath();ctx.moveTo(v,0);ctx.lineTo(v,h);ctx.stroke();ctx.beginPath();ctx.moveTo(0,cy+k*34*scale);ctx.lineTo(w,cy+k*34*scale);ctx.stroke();}
+ ctx.fillStyle='#26394b';
+ for(let x=-5;x<=5;x++)for(let z=-5;z<=5;z++){if(Math.abs(x*34)<10||Math.abs(z*34)<10)continue;ctx.fillRect(cx+x*34*scale-5,cy+z*34*scale-5,10,10);}
+ const pos=inCar?car.position:player.position;
+ // District labels and mission pins
+ ctx.font='10px Arial';ctx.fillStyle='#8aa8bd';ctx.fillText('NOVA',cx-18,cy-72);ctx.fillText('OLD TOWN',cx-112,cy+4);ctx.fillText('INDUSTRIAL',cx+65,cy+4);ctx.fillText('MARKET',cx-20,cy+85);
+ missionPoints.forEach(m=>{ctx.fillStyle='#ffd34d';ctx.beginPath();ctx.arc(cx+m.x*scale,cy+m.z*scale,4,0,Math.PI*2);ctx.fill();});
+ const px=cx+pos.x*scale,py=cy+pos.z*scale;
+ if(gpsTarget){const tx=cx+gpsTarget.x*scale,ty=cy+gpsTarget.z*scale;ctx.strokeStyle='#ffe16b';ctx.setLineDash([5,4]);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(tx,ty);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#ffe16b';ctx.beginPath();ctx.arc(tx,ty,6,0,Math.PI*2);ctx.fill();}
+ ctx.fillStyle='#32eaff';ctx.beginPath();ctx.arc(px,py,6,0,Math.PI*2);ctx.fill();
+ ctx.strokeStyle='#32eaff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px-Math.sin(yaw)*15,py-Math.cos(yaw)*15);ctx.stroke();
+ ctx.fillStyle='#ff3d91';ctx.beginPath();ctx.arc(cx+car.position.x*scale,cy+car.position.z*scale,4,0,Math.PI*2);ctx.fill();
+}
+document.querySelector('#mapCanvas').addEventListener('click',e=>{
+ const rect=e.currentTarget.getBoundingClientRect(),x=(e.clientX-rect.left)*(280/rect.width),y=(e.clientY-rect.top)*(280/rect.height);
+ gpsTarget={x:(x-140)/.38,z:(y-140)/.38};say(language==='zh'?'GPS 目的地已设置':'GPS destination set');
+});
+renderSettings();
+
+document.addEventListener('keydown',e=>{
+ if(waitingBind){e.preventDefault();binds[waitingBind]=e.code;waitingBind=null;renderSettings();return;}
+ keys[e.code]=true;
+ if(e.code===binds.view){firstPerson=!firstPerson;updateMode();}
+ if(e.code===binds.map){const el=document.querySelector('#mapPanel');el.style.display=el.style.display==='block'?'none':'block';}
+ if(e.code===binds.enterCar){
+   const currentPos=inCar?car.position:player.position;
+   if(!inCar && !insideHub && currentPos.distanceTo(hubDoor)<5){
+     insideHub=true;player.position.set(22,0,5);car.visible=false;say(language==='zh'?'进入城市休息站：按 E 离开':'Inside city hub: press E to exit');
+   }else if(insideHub){
+     insideHub=false;player.position.set(22,0,12);car.visible=true;say(language==='zh'?'已离开建筑':'Exited building');
+   }else if(!inCar && player.position.distanceTo(car.position)<5){
+     inCar=true;player.visible=false;carSpeed=0;say('已上车：W 加速，S 刹车，A/D 转向');
+   }else if(inCar){
+     inCar=false;player.visible=true;
+     player.position.copy(car.position).add(new THREE.Vector3(2.7,0,0));
+     say('已下车');
+   }
+ }
+ if(e.code===binds.jump&&onGround&&!inCar){velocityY=8;onGround=false;}
+});
+
+document.addEventListener('keyup',e=>keys[e.code]=false);
+
+// Mobile touch controls: virtual joystick, drag-to-look, and action buttons.
+const isTouchDevice=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+if(isTouchDevice){
+ const joy=document.querySelector('#joyBase'),stick=document.querySelector('#joyStick');
+ let joyId=null,lookId=null,lastX=0,lastY=0;
+ function setVirtual(x,y){
+   const dead=.22;
+   keys[binds.forward]=y < -dead;keys[binds.back]=y > dead;
+   keys[binds.left]=x < -dead;keys[binds.right]=x > dead;
+ }
+ joy.addEventListener('touchstart',e=>{
+   e.preventDefault();const t=e.changedTouches[0];joyId=t.identifier;moveJoy(t);
+ },{passive:false});
+ function moveJoy(t){
+   const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+   let dx=t.clientX-cx,dy=t.clientY-cy;const max=48,len=Math.hypot(dx,dy);
+   if(len>max){dx=dx/len*max;dy=dy/len*max;}
+   stick.style.transform=`translate(${dx}px,${dy}px)`;
+   setVirtual(dx/max,dy/max);
+ }
+ joy.addEventListener('touchmove',e=>{
+   const t=[...e.changedTouches].find(t=>t.identifier===joyId);if(t){e.preventDefault();moveJoy(t);}
+ },{passive:false});
+ function releaseJoy(e){
+   if([...e.changedTouches].some(t=>t.identifier===joyId)){joyId=null;stick.style.transform='';setVirtual(0,0);}
+ }
+ joy.addEventListener('touchend',releaseJoy);joy.addEventListener('touchcancel',releaseJoy);
+ canvas.addEventListener('touchstart',e=>{
+   if(e.touches.length){const t=e.changedTouches[0];lookId=t.identifier;lastX=t.clientX;lastY=t.clientY;}
+ },{passive:true});
+ canvas.addEventListener('touchmove',e=>{
+   const t=[...e.changedTouches].find(t=>t.identifier===lookId);
+   if(t){const dx=t.clientX-lastX,dy=t.clientY-lastY;lastX=t.clientX;lastY=t.clientY;yaw-=dx*.006;pitch=Math.max(-1.15,Math.min(.75,pitch-dy*.005));}
+ },{passive:true});
+ canvas.addEventListener('touchend',e=>{if([...e.changedTouches].some(t=>t.identifier===lookId))lookId=null;});
+ function holdButton(id,code){
+   const el=document.querySelector(id);
+   el.addEventListener('touchstart',e=>{e.preventDefault();keys[code]=true;},{passive:false});
+   ['touchend','touchcancel'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();keys[code]=false;},{passive:false}));
+ }
+ holdButton('#touchJump',binds.jump);holdButton('#touchRun',binds.run);
+ document.querySelector('#touchUse').addEventListener('click',()=>{keys[binds.enterCar]=true;setTimeout(()=>keys[binds.enterCar]=false,100);});
+ document.querySelector('#touchView').addEventListener('click',()=>{firstPerson=!firstPerson;updateMode();});
+ document.querySelector('#touchMap').addEventListener('click',()=>{const el=document.querySelector('#mapPanel');el.style.display=el.style.display==='block'?'none':'block';});
+ document.querySelector('#touchSettings').addEventListener('click',()=>{document.querySelector('#settingsPanel').style.display='block';});
+ // On phones, start directly into the world; no pointer-lock API is needed.
+}
+
+document.addEventListener('mousemove',e=>{if(!locked)return;yaw-=e.movementX*.0022;pitch-=e.movementY*.0018;pitch=Math.max(-1.15,Math.min(.75,pitch));});
+document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===canvas;});
+document.querySelector('#enter').addEventListener('click',()=>{document.querySelector('#start').style.display='none';if(!isTouchDevice)canvas.requestPointerLock?.();});
+canvas.addEventListener('click',()=>{if(!isTouchDevice&&document.querySelector('#start').style.display==='none'&&!locked)canvas.requestPointerLock?.();});
+function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);}
+addEventListener('resize',resize);
+
+const clock=new THREE.Clock();
+function animate(){
+ requestAnimationFrame(animate);
+ const dt=Math.min(clock.getDelta(),.04);
+ timeState.hour=(timeState.hour+dt*timeState.rate)%24;updateDayNight();
+ missionObjects.forEach((o,i)=>{o.position.y=.4+Math.sin(clock.elapsedTime*2+i)*.35;o.rotation.y=clock.elapsedTime*.35;});
+ const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
+ const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+ let move=new THREE.Vector3();
+ if(keys[binds.forward]||keys.ArrowUp)move.add(forward);
+ if(keys[binds.back]||keys.ArrowDown)move.sub(forward);
+ if(keys[binds.right]||keys.ArrowRight)move.add(right);
+ if(keys[binds.left]||keys.ArrowLeft)move.sub(right);
+ if(!inCar && !insideHub && move.lengthSq()>0){move.normalize();const speed=(keys[binds.run]||keys.ShiftRight)?12:6.5;player.position.addScaledVector(move,speed*dt);player.rotation.y=yaw+Math.PI;}
+ if(!inCar && !insideHub){velocityY-=19*dt;player.position.y+=velocityY*dt;}
+ if(player.position.y<0){player.position.y=0;velocityY=0;onGround=true;}
+ player.position.x=THREE.MathUtils.clamp(player.position.x,-320,320);
+ player.position.z=THREE.MathUtils.clamp(player.position.z,-320,320);
+
+ if(inCar){
+   yaw=car.rotation.y;
+   if(keys[binds.forward]||keys.ArrowUp)carSpeed=Math.min(carSpeed+15*dt,32);
+   else if(keys[binds.back]||keys.ArrowDown)carSpeed=Math.max(carSpeed-24*dt,-9);
+   else carSpeed*=Math.pow(.985,dt*60);
+   if(Math.abs(carSpeed)<.08)carSpeed=0;
+   const steerInput=(keys[binds.left]||keys.ArrowLeft?1:0)-(keys[binds.right]||keys.ArrowRight?1:0);
+   steering=THREE.MathUtils.lerp(steering,steerInput,.12);
+   car.rotation.y += steering*carSpeed*.018*dt;
+   const carForward=new THREE.Vector3(-Math.sin(car.rotation.y),0,-Math.cos(car.rotation.y));
+   car.position.addScaledVector(carForward,carSpeed*dt);
+   car.position.x=THREE.MathUtils.clamp(car.position.x,-320,320);
+   car.position.z=THREE.MathUtils.clamp(car.position.z,-320,320);
+   wheels.forEach(w=>{w.rotation.x+=carSpeed*dt*1.8;});
+   player.position.copy(car.position);
+ }else{
+   if(move.lengthSq()>0){move.normalize();const speed=(keys[binds.run]||keys.ShiftRight)?12:6.5;player.position.addScaledVector(move,speed*dt);player.rotation.y=yaw+Math.PI;}
+ }
+ const activePos=inCar?car.position:player.position;
+ const eye=new THREE.Vector3(activePos.x,activePos.y+(firstPerson?1.75:2.0),activePos.z);
+ if(firstPerson){
+   camera.position.copy(eye);
+   const dir=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
+   camera.lookAt(eye.clone().add(dir));
+ }else{
+   const followYaw=inCar?car.rotation.y:yaw;
+   const offset=new THREE.Vector3(Math.sin(followYaw)*7,3.2,Math.cos(followYaw)*7);
+   camera.position.copy(eye).add(offset);
+   camera.lookAt(eye.clone().add(new THREE.Vector3(0,.15,0)));
+ }
+ if(inCar && firstPerson){
+   const carDir=new THREE.Vector3(-Math.sin(car.rotation.y),0,-Math.cos(car.rotation.y));
+   camera.position.set(car.position.x,car.position.y+1.55,car.position.z);
+   camera.lookAt(camera.position.clone().add(carDir));
+ }
+ const t=clock.elapsedTime;
+ const pNow=inCar?car.position:player.position;
+ const district=(Math.abs(pNow.x)<80&&Math.abs(pNow.z)<80)?(language==='zh'?'新曙光中心':'Nova Center'):(pNow.x>80?'工业区':(pNow.x< -80?'旧城区':'霓虹商业区'));
+ const gpsText=gpsTarget?`<br>GPS：${Math.round(pNow.distanceTo(new THREE.Vector3(gpsTarget.x,0,gpsTarget.z)))} m`:'';
+ document.querySelector('#status').innerHTML=`${language==='zh'?'区域':'District'}：${district}<br>${language==='zh'?'模式':'Mode'}：${inCar?'驾驶车辆':'步行探索'}<br>${language==='zh'?'视角':'View'}：${firstPerson?'第一人称':'第三人称'}${inCar?`<br>${language==='zh'?'车速':'Speed'}：${Math.round(Math.abs(carSpeed)*12)} km/h`:''}${gpsText}`;
+ drones.forEach((d,i)=>{d.g.position.x+=Math.sin(t*d.speed+d.phase)*dt*2;d.g.position.z+=Math.cos(t*d.speed+d.phase)*dt*1.3;d.g.position.y+=Math.sin(t*1.3+d.phase)*dt*.7;d.g.rotation.y=Math.sin(t*.4+d.phase)*.3;});
+ if(document.querySelector('#mapPanel').style.display==='block')drawMap();
+ renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>
